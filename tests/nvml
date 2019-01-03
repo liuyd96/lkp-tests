@@ -12,8 +12,9 @@ cd $nvml_dir || die "fail to cd $nvml_dir"
 # enable the nvml to use ndctl
 log_cmd export NDCTL_ENABLE=y
 
-# avoid tools/pmemdetect/pmemdetect.static-nondebug: error while loading shared libraries
-ldconfig /usr/local/lib/libndctl.so.6
+# avoid error while loading shared libraries
+echo "/usr/local/lib" >> /etc/ld.so.conf
+ldconfig
 
 install_tests()
 {
