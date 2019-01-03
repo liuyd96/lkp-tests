@@ -12,25 +12,29 @@ cd $nvml_dir || die "fail to cd $nvml_dir"
 # enable the nvml to use ndctl
 log_cmd export NDCTL_ENABLE=y
 
-# avoid error while loading shared libraries
-echo "/usr/local/lib" >> /etc/ld.so.conf
-ldconfig
+# avoid tools/pmemdetect/pmemdetect.static-nondebug: error while loading shared libraries
+ldconfig /usr/local/lib/libndctl.so.6
 
 install_tests()
 {
 	local NVML_REPO="https://github.com/pmem/nvml.git"
 	[ "$LKP_LOCAL_RUN" != "1" ] && NVML_REPO="git://gitmirror/nvml"
-
+	echo 1111111111111111
 	[ "$nvml_commit" ] || return
-
+	echo 222222222222222
 	git clone $NVML_REPO 2>&1 || return
+	echo 333333333333333333
 	cd $nvml_dir/nvml || return
+	echo 44444444444444444444
 	git checkout -f $nvml_commit 2>&1 || return
 
 	source_dir="$nvml_dir/nvml"
 	build_ignore_file || return
+	echo 55555555555555555
 	build_generate_testgroup || return
+	echo 66666666666666666
 	build_user_filter_file || return
+	echo 7777777777777777
 }
 
 install_tests || die "install nvml failed"
