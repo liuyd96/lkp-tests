@@ -17,11 +17,18 @@ source $LKP_SRC/lib/unit.sh
 }
 
 need_memory_mb=$(to_mb $need_memory)
-memory_mb=$(to_mb $memory)
 
-if (( need_memory_mb > memory_mb )); then
+# get available memory(mb)
+# liuyd@lkp-boy:~$ free -m
+#               total        used        free      shared  buff/cache   available
+# Mem:          16051        2251       12407          17        1391       13487
+# Swap:          2045           0        2045
+
+available_memory_mb=$(free -m | sed -n "2, 1p" | awk '{print $7}')
+
+if ((need_memory_mb > available_memory_mb)); then
 	echo "rm $job_file due to not enough memory"
-	echo "need: $need_memory_mb MB, has: $memory MB"
+	echo "need: $need_memory_mb MB, has: $available_memory_mb MB"
 	exit 1
 fi
 

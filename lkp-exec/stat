@@ -5,9 +5,9 @@ LKP_SRC = ENV['LKP_SRC'] || File.dirname(File.dirname(File.realpath($PROGRAM_NAM
 require 'optparse'
 require 'ostruct'
 require "#{LKP_SRC}/lib/lkp_git"
-require "#{LKP_SRC}/lib/yaml.rb"
-require "#{LKP_SRC}/lib/stats.rb"
-require "#{LKP_SRC}/lib/result.rb"
+require "#{LKP_SRC}/lib/yaml"
+require "#{LKP_SRC}/lib/stats"
+require "#{LKP_SRC}/lib/result"
 
 $opt_group = '_rt'
 $opt_kernel = ''
@@ -37,7 +37,7 @@ opt_parser = OptionParser.new do |opts|
     when /[0-9]+m$/, /[0-9]+w$/, /[0-9]+d$/, /[0-9]+$/
       $opt_pattern = "  -d #{date}" + $opt_pattern
     else
-      $stderr.puts "-d #{date}: parameter is unsuitable."
+      warn "-d #{date}: parameter is unsuitable."
       puts opts
       exit
     end
@@ -77,9 +77,12 @@ groups = {}
 _result_roots.each do |_rt|
   __rt = File.dirname _rt
 
-  next unless File.exist? _rt + '/matrix.json'
-  matrix = load_json _rt + '/matrix.json'
+  matrix_path = _rt + '/matrix.json'
+  next unless File.size? matrix_path
+
+  matrix = load_json matrix_path
   next unless matrix
+
   unless $opt_field =~ /last_state/
     next if matrix['last_state.is_incomplete_run'] && matrix['last_state.is_incomplete_run'].sum == matrix_cols(matrix)
   end

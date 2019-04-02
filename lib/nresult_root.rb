@@ -1,12 +1,12 @@
 LKP_SRC ||= ENV['LKP_SRC'] || File.dirname(__dir__)
 
-require "#{LKP_SRC}/lib/common.rb"
-require "#{LKP_SRC}/lib/property.rb"
-require "#{LKP_SRC}/lib/yaml.rb"
-require "#{LKP_SRC}/lib/job.rb"
-require "#{LKP_SRC}/lib/result.rb"
-require "#{LKP_SRC}/lib/data_store.rb"
-require "#{LKP_SRC}/lib/matrix.rb"
+require "#{LKP_SRC}/lib/common"
+require "#{LKP_SRC}/lib/property"
+require "#{LKP_SRC}/lib/yaml"
+require "#{LKP_SRC}/lib/job"
+require "#{LKP_SRC}/lib/result"
+require "#{LKP_SRC}/lib/data_store"
+require "#{LKP_SRC}/lib/matrix"
 require "#{LKP_SRC}/lib/stats"
 
 # Common Result Root
@@ -134,7 +134,7 @@ module CMResultRoot
     return nil if matrix_cols(cm) < 3
     avg_stddev = {}
     cm.each do |k, v|
-      next unless is_kpi_stat(k, axes, [v])
+      next unless kpi_stat?(k, axes, [v])
       avg_stddev[k] = [v.average, v.standard_deviation]
     end
     avg_stddev
@@ -197,7 +197,7 @@ class MMResultRoot
   end
 
   def matrix
-    merge_matrixes(@mresult_roots.map { |_rt| _rt.matrix })
+    merge_matrixes(@mresult_roots.map(&:matrix))
   end
 
   def complete_matrix(m = nil)

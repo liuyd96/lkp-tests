@@ -2,7 +2,7 @@ suite: rcutorture
 testcase: rcutorture
 category: functional
 
-need_memory: 512M
+need_memory: 300MB
 runtime: 300s
 
 kernel_cmdline: rcutorture.fwd_progress=0
@@ -11,3 +11,8 @@ rcutorture:
   test:
   - default
   - cpuhotplug
+  torture_type:
+  - rcu
+  - srcu
+  - srcud
+  - tasks

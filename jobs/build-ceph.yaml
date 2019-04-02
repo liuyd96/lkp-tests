@@ -1,13 +1,13 @@
 suite: build-ceph
 testcase: build-ceph
-category: functional
+category: build
 
 timeout: 6000
 need_memory: 8G
-testbox: vm-snb-8G
+testbox: lkp-opteron1
 
 branch: linus/master
-commit: v4.17
+commit: BASE
 
 ceph_branch: ceph/master
 ceph_commit: HEAD

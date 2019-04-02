@@ -5,26 +5,27 @@ MAX_RATIO = 5
 
 LKP_SRC ||= ENV['LKP_SRC'] || File.dirname(__dir__)
 
-require 'set.rb'
+require 'set'
 require "#{LKP_SRC}/lib/lkp_git"
-require "#{LKP_SRC}/lib/git-update.rb" if File.exist?("#{LKP_SRC}/lib/git-update.rb")
-require "#{LKP_SRC}/lib/yaml.rb"
-require "#{LKP_SRC}/lib/result.rb"
-require "#{LKP_SRC}/lib/bounds.rb"
-require "#{LKP_SRC}/lib/constant.rb"
-require "#{LKP_SRC}/lib/statistics.rb"
+require "#{LKP_SRC}/lib/git-update" if File.exist?("#{LKP_SRC}/lib/git-update.rb")
+require "#{LKP_SRC}/lib/yaml"
+require "#{LKP_SRC}/lib/result"
+require "#{LKP_SRC}/lib/bounds"
+require "#{LKP_SRC}/lib/constant"
+require "#{LKP_SRC}/lib/statistics"
 require "#{LKP_SRC}/lib/log"
-require "#{LKP_SRC}/lib/tests.rb"
+require "#{LKP_SRC}/lib/tests"
 
 $metric_add_max_latency = IO.read("#{LKP_SRC}/etc/add-max-latency").split("\n")
 $metric_latency = IO.read("#{LKP_SRC}/etc/latency").split("\n")
 $metric_failure = IO.read("#{LKP_SRC}/etc/failure").split("\n")
 $perf_metrics_threshold = YAML.load_file "#{LKP_SRC}/etc/perf-metrics-threshold.yaml"
 $perf_metrics_prefixes = File.read("#{LKP_SRC}/etc/perf-metrics-prefixes").split
-$index_perf = load_yaml "#{LKP_SRC}/etc/index-perf.yaml"
+$index_perf = load_yaml "#{LKP_SRC}/etc/index-perf-all.yaml"
 
 $perf_metrics_re = load_regular_expressions("#{LKP_SRC}/etc/perf-metrics-patterns")
 $metrics_blacklist_re = load_regular_expressions("#{LKP_SRC}/etc/blacklist")
+$report_whitelist_re = load_regular_expressions("#{LKP_SRC}/etc/report-whitelist")
 $kill_pattern_whitelist_re = load_regular_expressions("#{LKP_SRC}/etc/dmesg-kill-pattern")
 
 class LinuxTestcasesTableSet
@@ -42,9 +43,9 @@ class LinuxTestcasesTableSet
      'xfstests', 'chromeswap', 'fio-basic', 'apachebench', 'perf_event_tests', 'swapin',
      'tpcc', 'mytest', 'exit_free', 'pgbench', 'boot_trace', 'sysbench-cpu',
      'sysbench-memory', 'sysbench-threads', 'sysbench-mutex', 'stream',
-     'perf-bench-futex', 'mutilate', 'lmbench3', 'libMicro', 'schbench',
+     'perf-bench-futex', 'mutilate', 'lmbench3', 'lib_micro', 'schbench',
      'pmbench', 'linkbench', 'rocksdb', 'cassandra', 'redis', 'power_idle',
-     'mongodb', 'ycsb'].freeze
+     'mongodb', 'ycsb', 'memtier'].freeze
   LINUX_TESTCASES =
     ['analyze_suspend', 'boot', 'blktests', 'cpu-hotplug', 'ext4-frags', 'ftq', 'ftrace_onoff', 'fwq',
      'galileo', 'irda-kernel', 'kernel_selftests', 'kvm-unit-tests', 'kvm-unit-tests-qemu',
@@ -59,7 +60,7 @@ class LinuxTestcasesTableSet
      'health-stats', 'hwinfo', 'internal-lkp-service', 'ipmi-setup',
      'lkp-bug', 'lkp-install-run', 'lkp-services', 'lkp-src', 'pack', 'lkp-qemu',
      'pack-deps', 'makepkg', 'makepkg-deps', 'borrow', 'dpdk-dts', 'mbtest', 'build-acpica', 'build-ltp',
-     'bust_shm_exit'].freeze
+     'bust_shm_exit', 'build-llvm_project'].freeze
 end
 
 # => ["tcrypt.", "hackbench.", "dd.", "xfstests.", "aim7.", ..., "oltp.", "fileio.", "dmesg."]
@@ -75,7 +76,7 @@ def test_prefixes
   tests.map { |test| test + '.' }
 end
 
-def is_functional_test(testcase)
+def functional_test?(testcase)
   LinuxTestcasesTableSet::LINUX_TESTCASES.index testcase
 end
 
@@ -86,7 +87,7 @@ end
 $test_prefixes = test_prefixes
 additional_perf_metrics_prefixes = $test_prefixes.reject do |test|
   test_name = test[0..-2]
-  is_functional_test(test_name) || other_test?(test_name) || %w(kmsg dmesg stderr last_state).include?(test_name)
+  functional_test?(test_name) || other_test?(test_name) || %w(kmsg dmesg stderr last_state).include?(test_name)
 end
 
 $perf_metrics_prefixes.concat(additional_perf_metrics_prefixes)
@@ -101,7 +102,7 @@ def __is_perf_metric(name)
   false
 end
 
-def is_perf_metric(name)
+def perf_metric?(name)
   $__is_perf_metric_cache ||= {}
   if $__is_perf_metric_cache.include? name
     $__is_perf_metric_cache[name]
@@ -112,7 +113,7 @@ end
 
 # Check whether it looks like a reasonable performance change,
 # to avoid showing unreasonable ones to humans in compare/mplot output.
-def is_reasonable_perf_change(name, delta, max)
+def reasonable_perf_change?(name, delta, max)
   $perf_metrics_threshold.each do |k, v|
     next unless name =~ %r{^#{k}$}
     return false if max < v
@@ -144,17 +145,17 @@ def is_reasonable_perf_change(name, delta, max)
   true
 end
 
+def blacklist_auto_report_author?(author)
+  auto_report_author_blacklist_re = load_regular_expressions("#{LKP_SRC}/etc/auto-report-author-blacklist")
+  author =~ auto_report_author_blacklist_re
+end
+
 def blacklist_auto_report_stat?(stat)
   auto_report_blacklist_re = load_regular_expressions("#{LKP_SRC}/etc/auto-report-blacklist")
   stat =~ auto_report_blacklist_re
 end
 
-def blacklist_bisect_stat?(stat)
-  bisect_blacklist_re = load_regular_expressions("#{LKP_SRC}/etc/bisect-blacklist")
-  stat =~ bisect_blacklist_re
-end
-
-def is_changed_stats(sorted_a, min_a, mean_a, max_a,
+def changed_stats?(sorted_a, min_a, mean_a, max_a,
                      sorted_b, min_b, mean_b, max_b,
                      is_failure_stat, is_latency_stat,
                      stat, options)
@@ -218,7 +219,7 @@ def stat_relevance(record)
                 5
               elsif $test_prefixes.include? stat.sub(/\..*/, '.')
                 100
-              elsif is_perf_metric(stat)
+              elsif perf_metric?(stat)
                 1
               else
                 10
@@ -279,6 +280,7 @@ end
 def load_base_matrix(matrix_path, head_matrix, options)
   matrix_path = File.realpath matrix_path
   matrix_path = File.dirname matrix_path if File.file? matrix_path
+  log_debug "matrix_path is #{matrix_path}"
 
   rp = ResultPath.new
   rp.parse_result_root matrix_path
@@ -313,6 +315,8 @@ def load_base_matrix(matrix_path, head_matrix, options)
 
   begin
     return nil unless git.commit_exist? commit
+    version = nil
+    is_exact_match = false
     version, is_exact_match = git.gcommit(commit).last_release_tag
     puts "project: #{project}, version: #{version}, is exact match: #{is_exact_match}" if ENV['LKP_VERBOSE']
   rescue StandardError => e
@@ -383,7 +387,7 @@ def load_base_matrix(matrix_path, head_matrix, options)
 
   if !matrix.empty?
     if cols >= 3 ||
-       (cols >= 1 && is_functional_test(rp['testcase'])) ||
+       (cols >= 1 && functional_test?(rp['testcase'])) ||
        head_matrix['last_state.is_incomplete_run'] ||
        head_matrix['dmesg.boot_failures'] ||
        head_matrix['stderr.has_stderr']
@@ -431,7 +435,7 @@ def is_latency(stats_field)
   end
 end
 
-def is_memory_change(stats_field)
+def memory_change?(stats_field)
   stats_field =~ /^(boot-meminfo|boot-memory|proc-vmstat|numa-vmstat|meminfo|memmap|numa-meminfo)\./
 end
 
@@ -502,9 +506,9 @@ def __get_changed_stats(a, b, is_incomplete_run, options)
 
   a.each do |k, v|
     next if v[-1].is_a?(String)
-    next if options['perf'] && !is_perf_metric(k)
+    next if options['perf'] && !perf_metric?(k)
     next if is_incomplete_run && k !~ /^(dmesg|last_state|stderr)\./
-    next if !options['more'] && k =~ $metrics_blacklist_re
+    next if !options['more'] && k =~ $metrics_blacklist_re && k !~ $report_whitelist_re
 
     is_failure_stat = if options['force_' + k]
                         true
@@ -527,7 +531,7 @@ def __get_changed_stats(a, b, is_incomplete_run, options)
       # virtual hosts are dynamic and noisy
       next if options['tbox_group'] =~ /^vh-/
       # VM boxes' memory stats are still good
-      next if options['tbox_group'] =~ /^vm-/ && !options['is_perf_test_vm'] && is_memory_change(k)
+      next if options['tbox_group'] =~ /^vm-/ && !options['is_perf_test_vm'] && memory_change?(k)
     end
 
     # newly added monitors don't have values to compare in the base matrix
@@ -550,7 +554,7 @@ def __get_changed_stats(a, b, is_incomplete_run, options)
     min_a, mean_a, max_a = get_min_mean_max sorted_a
     next unless max_a
 
-    next unless is_changed_stats(sorted_a, min_a, mean_a, max_a,
+    next unless changed_stats?(sorted_a, min_a, mean_a, max_a,
                                  sorted_b, min_b, mean_b, max_b,
                                  is_failure_stat, is_latency_stat,
                                  k, options)
@@ -587,8 +591,8 @@ def __get_changed_stats(a, b, is_incomplete_run, options)
 
     unless options['perf-profile'] && k =~ /^perf-profile\./
       next unless ratio > 1.01 # time.elapsed_time only has 0.01s precision
-      next unless ratio > 1.1 || is_perf_metric(k)
-      next unless is_reasonable_perf_change(k, delta, max)
+      next unless ratio > 1.1 || perf_metric?(k)
+      next unless reasonable_perf_change?(k, delta, max)
     end
 
     interval_a = format('[ %-10.5g - %-10.5g ]', min_a, max_a)
@@ -628,8 +632,11 @@ def load_matrices_to_compare(matrix_path1, matrix_path2, options = {})
     b = if matrix_path2
           search_load_json matrix_path2
         else
-          load_base_matrix matrix_path1, a, options
+          Timeout.timeout(300) { load_base_matrix matrix_path1, a, options }
         end
+  rescue Timeout::Error
+    log_error "load_base_matrix timeout"
+    return [nil, nil]
   rescue StandardError => e
     log_exception(e, binding)
     return [nil, nil]
@@ -710,7 +717,7 @@ def add_stats_to_matrix(stats, matrix)
   matrix
 end
 
-def matrix_from_stats_files(stats_files, add_source = true)
+def matrix_from_stats_files(stats_files, add_source = true, stats_field = nil)
   matrix = {}
   stats_files.each do |stats_file|
     stats = load_json stats_file
@@ -718,6 +725,8 @@ def matrix_from_stats_files(stats_files, add_source = true)
       log_warn "empty or non-exist stats file #{stats_file}"
       next
     end
+
+    stats = stats.select { |k, _v| k == stats_field || k == 'stats_source' } if stats_field
     stats['stats_source'] ||= stats_file if add_source
     matrix = add_stats_to_matrix(stats, matrix)
   end
@@ -735,13 +744,13 @@ def stat_key_base(stat)
   stat.partition('.').first
 end
 
-def is_kpi_stat_strict(stat, _axes, _values = nil)
+def strict_kpi_stat?(stat, _axes, _values = nil)
   $index_perf.include? stat
 end
 
 $kpi_stat_blacklist = Set.new ['vm-scalability.stddev', 'unixbench.incomplete_result']
 
-def is_kpi_stat(stat, _axes, _values = nil)
+def kpi_stat?(stat, _axes, _values = nil)
   return false if $kpi_stat_blacklist.include?(stat)
   base, _, remainder = stat.partition('.')
   all_tests_set.include?(base) && !remainder.start_with?('time.')

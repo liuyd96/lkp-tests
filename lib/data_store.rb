@@ -3,9 +3,9 @@ LKP_SRC ||= ENV['LKP_SRC'] || File.dirname(__dir__)
 require 'digest/sha1'
 require 'fileutils'
 
-require "#{LKP_SRC}/lib/common.rb"
-require "#{LKP_SRC}/lib/property.rb"
-require "#{LKP_SRC}/lib/yaml.rb"
+require "#{LKP_SRC}/lib/common"
+require "#{LKP_SRC}/lib/property"
+require "#{LKP_SRC}/lib/yaml"
 
 module DataStore
   CREATE_TIME = 'create_time'.freeze
@@ -85,7 +85,7 @@ module DataStore
 
     def to_data
       {
-        MAPS => @maps.map { |m| m.to_data },
+        MAPS => @maps.map(&:to_data),
         COMPRESS_MATRIX => @comparess_matrix
       }
     end

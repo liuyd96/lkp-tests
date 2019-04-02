@@ -10,7 +10,7 @@ GIT ||= "git --work-tree=#{GIT_WORK_TREE} --git-dir=#{GIT_DIR}".freeze
 
 require 'set'
 require 'time'
-require "#{LKP_SRC}/lib/yaml.rb"
+require "#{LKP_SRC}/lib/yaml"
 require "#{LKP_SRC}/lib/cache"
 require "#{LKP_SRC}/lib/assert"
 require "#{LKP_SRC}/lib/git_ext"
@@ -47,7 +47,7 @@ def git_patchid(commit)
   $__patchid_cache[commit]
 end
 
-def is_linus_commit(commit)
+def linus_commit?(commit)
   git_committer_name(commit) == 'Linus Torvalds'
 end
 
@@ -76,11 +76,11 @@ def commit_tag(commit)
 end
 
 def linus_release_tag(commit)
-  return nil unless is_linus_commit(commit)
+  return nil unless linus_commit?(commit)
 
   tag = commit_tag(commit)
   case tag
-  when /^v[34]\.\d+(-rc\d+)?$/, /^v2\.\d+\.\d+(-rc\d)?$/
+  when /^v[345]\.\d+(-rc\d+)?$/, /^v2\.\d+\.\d+(-rc\d)?$/
     tag
   end
 end
@@ -115,8 +115,8 @@ def __last_linus_release_tag(commit)
   elsif version == 2
     tag = "v2.#{patch_level}.#{sub_level}"
   else
-    $stderr.puts "Not a kernel tree? check #{GIT_WORK_TREE}"
-    $stderr.puts caller.join "\n"
+    warn "Not a kernel tree? check #{GIT_WORK_TREE}"
+    warn caller.join "\n"
     return nil
   end
 
@@ -195,7 +195,7 @@ def linus_tags
 end
 
 def base_rc_tag(commit)
-  commit += '~' if is_linus_commit(commit)
+  commit += '~' if linus_commit?(commit)
   version, _is_exact_match = last_linus_release_tag commit
   version
 end
@@ -223,7 +223,7 @@ def load_remotes
     end
 
     if remotes[remote]
-      $stderr.puts "conflict repo name in different projects: #{remote}"
+      warn "conflict repo name in different projects: #{remote}"
     end
 
     remotes[remote] = repo_info

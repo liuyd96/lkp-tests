@@ -9,9 +9,18 @@ split_syscalls()
 
 	i=1
 	n=1
+	test_num=""
 	cat $cmdfile | sed -e '/^$/ d' -e 's/^[ ,\t]*//' -e '/^#/ d' | while read line
 	do
-		if [ $n -gt 300 ];then
+		if [ "$i" = "2" ]; then
+			test_num=250
+		elif [ "$i" = "3" ]; then
+			test_num=50
+		else
+			test_num=300
+		fi
+
+		if [ $n -gt $test_num ];then
 			i=$(($i+1))
 			n=1
 		fi
@@ -63,6 +72,15 @@ rearrange_case()
 	grep "ftp4-download" net_stress.appl > net_stress.appl-02 || return
 	grep "ftp6-download" net_stress.appl > net_stress.appl-03 || return
 	cat net_stress.appl | grep -v "http[4|6]" | grep -v "ftp[4|6]-download" > net_stress.appl-04 || return
+
+	# re-arrange the case syscalls-ipc
+	sed -e "s/^#.*//g" syscalls-ipc | awk '{if (length !=0) print $0}' > syscalls-ipc-case || return
+	cat syscalls-ipc-case | grep -v "msgstress04" > syscalls-ipc-00
+	cat syscalls-ipc-case | grep "msgstress04" > syscalls-ipc-01
+
+	# re-arrange the case scsi_debug.part1
+	sed -e "s/^#.*//g" scsi_debug.part1 | awk '{if (length !=0) print $0}' > scsi_debug.part1-case || return
+	split -d -l90 scsi_debug.part1-case scsi_debug.part1- || return
 
 	cd ..
 }

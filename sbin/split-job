@@ -2,7 +2,7 @@
 
 LKP_SRC = ENV['LKP_SRC'] || File.dirname(File.dirname(File.realpath($PROGRAM_NAME)))
 
-require "#{LKP_SRC}/lib/job.rb"
+require "#{LKP_SRC}/lib/job"
 require "#{LKP_SRC}/lib/log"
 require 'optparse'
 require 'ostruct'
@@ -84,7 +84,8 @@ ARGV.each do |jobfile|
   prefix = opt_output_path + '/' + File.basename(jobfile, '.yaml')
   jobs.each_jobs do |job|
     unit_jobfile = prefix + '-' + job.path_params
-    unit_jobfile += '-' + job['commit'] if job['commit']
+    Job::EXPAND_DIMS.select { |dim| dim =~ /commit/ }
+                    .each { |dim| unit_jobfile += '-' + job[dim] if job[dim] }
     unit_jobfile += '-' + rootfs_filename(job['rootfs']) if job['rootfs']
     unit_jobfile += '.yaml'
     if @opt_any

@@ -2,11 +2,13 @@ suite: ltp
 testcase: ltp
 category: functional
 
-ltp_commit: HEAD
+ltp_commit:
+- HEAD
+- BASE
 ltp_branch: ltp/master
 
 need_modules: true
-need_memory: 4G
+need_memory: 3G
 
 ltp:
   test:
@@ -55,9 +57,7 @@ ltp:
   - net.tirpc_tests
   - tpm_tools
 # Stress test groups, but will not take too long time
-  - fs
   - fsx
-  - cve
   - crypto
 # io_cd requires special peripheral(/dev/cdrom and media)
 #  - io_cd
@@ -70,20 +70,14 @@ ltp:
   - net.ipv6
   - net.multicast
   - net.tcp_cmds
-  - scsi_debug.part1
-  - syscalls-ipc
+
+---
+need_memory: 4G
+ltp:
+  test:
+  - cve
+  - scsi_debug.part1-00
+  - scsi_debug.part1-01
+  - syscalls-ipc-00
+  - syscalls-ipc-01
   - tracing
-
----
-reboot_for_next_job: 1
-ltp:
-  test:
-  - crashme-02
-
----
-oom-killer:
-  ignored: 1
-
-ltp:
-  test:
-  - mm-00

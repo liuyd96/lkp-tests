@@ -4,16 +4,17 @@ LKP_SRC = ENV['LKP_SRC'] || File.dirname(File.dirname(File.realpath($PROGRAM_NAM
 
 require 'gnuplot'
 require 'optparse'
-require "#{LKP_SRC}/lib/statistics.rb"
-require "#{LKP_SRC}/lib/stats.rb"
-require "#{LKP_SRC}/lib/yaml.rb"
-require "#{LKP_SRC}/lib/plot.rb"
+require "#{LKP_SRC}/lib/statistics"
+require "#{LKP_SRC}/lib/stats"
+require "#{LKP_SRC}/lib/yaml"
+require "#{LKP_SRC}/lib/plot"
 
-$opt_output_path = "output.png"
+$opt_output_path = 'output.png'
 $x_stat_key = nil
 $x_relative = false
 $xtics = false
 $y_min = nil
+$x_range = [nil, nil]
 
 opt_parser = OptionParser.new do |opts|
   opts.banner = 'Usage: mplot matrix.json stat_field [matrix.json stat_filed]... [OPTION...]'
@@ -34,15 +35,19 @@ opt_parser = OptionParser.new do |opts|
   end
 
   opts.on('-r', '--relative-x', 'x axis relative to the first element') do
-    $x_relative = true;
+    $x_relative = true
   end
 
   opts.on('--xtics', 'draw x tics') do
-    $xtics = true;
+    $xtics = true
   end
 
   opts.on('--y-min YMIN', 'The y range minimum') do |ymin|
-    $y_min = ymin;
+    $y_min = ymin
+  end
+
+  opts.on('--x-range RANGE', 'The x range') do |range|
+    $x_range = range.split(',').map(&:to_i)
   end
 
   opts.on_tail('-h', '--help', 'show help message') do
@@ -60,9 +65,10 @@ end
 
 def plot_it(matrix_stat_arr)
   plotter = MMatrixPlotter.new
-  plotter.set_x_stat_key($x_stat_key).
-    set_xtics($xtics).
-    set_y_range([$y_min, nil])
+  plotter.set_x_stat_key($x_stat_key)
+         .set_xtics($xtics)
+         .set_y_range([$y_min, nil])
+         .set_x_range($x_range)
   lines = []
   matrix_stat_arr.each_slice(2) do |matrix_fn, stat|
     matrix = load_json matrix_fn
@@ -73,11 +79,11 @@ def plot_it(matrix_stat_arr)
       matrix[rel_x] = xs.map { |xi| xi - x0 }
       plotter.set_x_stat_key(rel_x)
     end
-    lines << [matrix, stat, stat.gsub('_', '\_')]
+    lines << [matrix, stat, stat]
   end
-  plotter.set_output_file_name($opt_output_path).
-    set_lines(lines).
-    plot
+  plotter.set_output_file_name($opt_output_path)
+         .set_lines(lines)
+         .plot
 end
 
 plot_it(ARGV)

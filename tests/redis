@@ -3,10 +3,12 @@
 # - data_size
 # - n_client
 # - requests
+# - requests_multiple
 # - n_pipeline
 # - key_len
-# - nr_task
+# - nr_processes
 # - cpu_node_bind
+# - mem_node_bind
 
 ## Redis is an open source (BSD licensed), in-memory data structure store,
 ## used as a database, cache and message broker. It supports data structures
@@ -16,20 +18,44 @@
 ## done by N clients at the same time sending M total queries (it is similar
 ## to the Apache's ab utility)
 
-. $LKP_SRC/lib/reproduce-log.sh
-export PATH=$BENCHMARK_ROOT/redis/bin:$PATH
-for i in $(seq 1 "${nr_task}")
-do
-	port=$((6379+$i))
+. "$LKP_SRC"/lib/reproduce-log.sh
+. "$LKP_SRC"/lib/numactl.sh
 
-	if [ -n "$cpu_node_bind" ]; then
-		if [ "$cpu_node_bind" = "even" ]; then
-			bind=$(($i%2))
-		else
-			bind=$cpu_node_bind
-		fi
-		numa_bind="numactl --cpunodebind=$bind --"
-	fi
-	log_test $numa_bind redis-benchmark -t $test -d $data_size -c $n_client -n $requests -P $n_pipeline -r $key_len -p $port&
+export PATH="$BENCHMARK_ROOT/redis/bin:$PATH"
+
+: "${nr_processes:=1}"
+: "${requests_multiple:=1}"
+
+[ -n "$key_len" ] || {
+	echo "$(basename $0) key_len must be specified!\n";
+	exit 1
+}
+
+[ -z "$requests" ] && requests=$((key_len * requests_multiple))
+
+proc_key_len=$((key_len/nr_processes))
+proc_requests=$((requests/nr_processes))
+
+opt="-r $proc_key_len -n $proc_requests"
+
+[ -n "$test" ] && opt="$opt -t $test"
+[ -n "$data_size" ] && opt="$opt -d $data_size"
+[ -n "$n_client" ] && opt="$opt -c $n_client"
+[ -n "$n_pipeline" ] && opt="$opt -P $n_pipeline"
+
+redis_dir="$TMP"/redis/
+rm -rf "$redis_dir"
+mkdir -p "$redis_dir"
+
+parse_numa_node_binding "$cpu_node_bind" "$mem_node_bind"
+
+for i in $(seq 1 "$nr_processes")
+do
+	port=$((6379+i))
+	numa_bind=$(numa_node_binding "$i")
+	log_test $numa_bind redis-benchmark $opt -p "$port" > "$redis_dir/redis.$i" &
 done
+
 wait
+
+cat "$redis_dir"/redis.*

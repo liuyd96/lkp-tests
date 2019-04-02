@@ -60,14 +60,14 @@ def array_add!(arr_dst, arr_src)
 end
 
 # Array "-" + "uniq!" with block to calculate key
-def array_subtract(arr1, arr2, &blk_key)
-  if blk_key
+def array_subtract(arr1, arr2)
+  if block_given?
     harr = {}
     arr1.each do |e|
-      harr[blk_key.call(e)] = e
+      harr[yield(e)] = e
     end
     arr2.each do |e|
-      harr.delete blk_key.call(e)
+      harr.delete yield(e)
     end
     harr.values
   else
@@ -147,6 +147,10 @@ end
 def canonicalize_path(path, dir = nil)
   abs_path = File.absolute_path(path, dir)
   Pathname.new(abs_path).cleanpath.to_s
+end
+
+def path_escape(path)
+  path.tr('/', '_')
 end
 
 module DirObject

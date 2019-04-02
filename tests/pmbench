@@ -2,8 +2,12 @@
 # - runtime
 # - pattern
 # - mapsize
+# - setsize
 # - shape
-# - nr_task
+# - nr_processes
+# - nr_threads
+# - cpu_node_bind
+# - mem_node_bind
 # - timestamp
 # - cold
 # - access
@@ -15,17 +19,23 @@
 # - threshold
 
 . "$LKP_SRC/lib/common.sh"
+. "$LKP_SRC/lib/reproduce-log.sh"
+. "$LKP_SRC/lib/numactl.sh"
 
-[ -n "$runtime" ] || runtime=60
+: "${runtime:=300}"
+: "${nr_processes:=1}"
 
 set_opt()
 {
 	opt=
-	[ -n "$mapsize" ] && opt="${opt} -m$(($mapsize/1024/1024))"
-	[ -n "$setsize" ] && opt="${opt} -s${setsize}"
+	if [ -n "$setsize" ]; then
+		opt="${opt} -s$((setsize/1024/1024))"
+		[ -z "$mapsize" ] && mapsize="$setsize"
+	fi
+	[ -n "$mapsize" ] && opt="${opt} -m$((mapsize/1024/1024))"
 	[ -n "$pattern" ] && opt="${opt} -p${pattern}"
 	[ -n "$shape" ] && opt="${opt} -e${shape}"
-	[ -n "$nr_task" ] && opt="${opt} -j${nr_task}"
+	[ -n "$nr_threads" ] && opt="${opt} -j${nr_threads}"
 	[ -n "$timestamp" ] && opt="${opt} -t${timestamp}"
 	parse_bool -q "$cold" && opt="${opt} -c"
 	[ -n "$access" ] && opt="${opt} -a${access}"
@@ -37,11 +47,21 @@ set_opt()
 	[ -n "$threshold" ] && opt="${opt} -h${threshold}"
 }
 
-run_pmbench()
-{
-	log_cmd /usr/local/bin/pmbench $opt $runtime
-}
-
 set_opt
 
-run_pmbench
+pmb_tmp_dir="$TMP/pmbench"
+rm -rf "$pmb_tmp_dir"
+mkdir -p "$pmb_tmp_dir"
+
+parse_numa_node_binding "$cpu_node_bind" "$mem_node_bind"
+
+for i in $(seq 1 $nr_processes); do
+	numa_bind=$(numa_node_binding "$i")
+	log_echo "$exec_prefix $numa_bind /usr/local/bin/pmbench $opt $runtime > $pmb_tmp_dir/pmbench.$i &"
+	$numa_bind /usr/local/bin/pmbench $opt $runtime > "$pmb_tmp_dir/pmbench.$i" &
+	echo $! >> $TMP/pid-tests
+done
+
+wait
+
+cat "$pmb_tmp_dir"/pmbench.*

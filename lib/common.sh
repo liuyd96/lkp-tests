@@ -60,6 +60,29 @@ expand_cpu_list()
 	done
 }
 
+cpu_list_count()
+{
+	cpu_list=$1
+	echo $cpu_list | wc -w
+}
+
+cpu_list_ref()
+{
+	cpu_list=$1
+	n=$2
+	echo $cpu_list | cut -d ' ' -f $((n+1))
+}
+
+# if str starts with prefix, output remaining part, otherwise output empty string
+remove_prefix()
+{
+	str=$1
+	prefix=$2
+
+	stem=${str#"$prefix"}
+	[ "$str" != "$stem" ] && echo -n "$stem"
+}
+
 is_rt()
 {
 	local path=$1

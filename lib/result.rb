@@ -19,7 +19,7 @@ def tbox_group(hostname)
   end
 end
 
-def is_tbox_group(hostname)
+def tbox_group?(hostname)
   return nil unless hostname.is_a?(String) && !hostname.empty?
   Dir[LKP_SRC + '/hosts/' + hostname][0]
 end
@@ -37,6 +37,8 @@ class ResultPath < Hash
     'build-dpdk' => %w[rootfs dpdk_config commit dpdk_compiler dpdk_commit run],
     'dpdk-dts' => %w[rootfs dpdk_config dpdk_compiler dpdk_commit run],
     'build-qemu' => %w[rootfs qemu_config qemu_commit run],
+    'build-llvm_project' => %w[rootfs llvm_project_commit run],
+    'deploy-clang' => %w[rootfs llvm_project_commit run],
     'build-nvml' => %w[rootfs nvml_commit run],
     'build-ltp' => %w[rootfs ltp_commit run],
     'build-acpica' => %w[acpica_commit test run],
@@ -74,10 +76,7 @@ class ResultPath < Hash
     end
 
     if ps.include?('commit')
-      unless self['commit'] && sha1_40?(self['commit'])
-        # $stderr.puts "ResultPath parse error for #{rt}"
-        return false
-      end
+      each_commit { |_type, commit| return false unless self[commit] && sha1_40?(self[commit]) }
     end
 
     # for rt and _rt

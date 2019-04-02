@@ -2,7 +2,7 @@
 
 LKP_SRC ||= ENV['LKP_SRC'] || File.dirname(__dir__)
 
-require "#{LKP_SRC}/lib/job.rb"
+require "#{LKP_SRC}/lib/job"
 require 'shellwords'
 
 TMP ||= ENV['TMP'] || '/tmp'
@@ -268,6 +268,10 @@ class Job2sh < Job
     @cur_func = :extract_stats
     out_line 'extract_stats()'
     out_line '{'
+    ajob = @jobx || @job
+    out_line "\texport stats_part_begin=#{ajob['stats_part_begin']}"
+    out_line "\texport stats_part_end=#{ajob['stats_part_end']}"
+    out_line
     @monitors = {}
     @programs = available_programs(:stats)
     parse_hash [], job

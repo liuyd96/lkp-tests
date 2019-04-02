@@ -72,8 +72,15 @@ Starting new kernel
 drm: drm_edid_block_valid
 Raw EDID:
 ACPI: Invalid BIOS MADT, disabling ACPI
+ACPI BIOS Error (bug): AE_AML_BUFFER_LIMIT, Field
+ACPI BIOS Error (bug): Could not resolve symbol
+ACPI Error: Aborting method
 ACPI: Error parsing LAPIC address override entry
 ACPI: Error parsing LAPIC NMI entry
+ACPI Error: No handler for Region
+ACPI Error: Region IPMI (ID=7) has no handler
+ACPI Error: Method parse/execution failed
+ACPI Error: AE_NOT_EXIST, Evaluating _PMC
 ACPI: No IRQ available for PCI Interrupt Link 
 ACPI: PCI Interrupt Link 
 ACPI needs to be enabled for this driver to work!
@@ -138,9 +145,37 @@ cros ec lpc: unsupported system
 Command line:
 qemu-system-x86_64
 Kernel command line:
-OF: /testcase-data/phandle-tests/consumer-a: could not find phandle
-OF: /testcase-data/phandle-tests/consumer-a: arguments longer than property
+OF: /testcase-data/phandle-tests/consumer-.: could not find phandle
+OF: /testcase-data/phandle-tests/consumer-.: arguments longer than property
+OF: /testcase-data/phandle-tests/consumer-.: could not get #phandle-cells-missing
+OF: /testcase-data/phandle-tests/consumer-.: could not get #phandle-missing-cells
+OF: overlay: WARNING: memory leak will occur if overlay removed, property:
 ACPI: NR_CPUS/possible_cpus limit of 
 EINJ: EINJ table not found
 Platform not recognized (You could try the module's force-parameter
 temperature above threshold, cpu clock throttled
+torture:
+busted-torture
+busted:  End-test grace-period state:
+tasks:  End-test grace-period state:
+Failure/close-call rcutorture reader segments:
+ bucket[
+\[ *[CT][0-9]*\]
+bcma-pci-bridge 0000:01:00.0: bus0: No SPROM available
+db_root: cannot open: /etc/target
+e cgroup1: Unknown subsys name '__DEVEL__sane_behavior'
+find.*bit:.*ns,.*iterations
+gpio_winbond: not an our chip
+mce: [Hardware Error]:
+parport_pc parport_pc.*: Unable to set coherent dma mask: disabling DMA
+power_meter ACPI000D:00: Ignoring unsafe software power cap!
+pstore: crypto_comp_decompress failed
+pstore: decompression failed:
+Spectre V2 : Spectre mitigation: kernel not compiled with retpoline; no mitigation available!
+tcrypt: failed to load transform for cfb(aes)
+tpm tpm0: A TPM error (.*) occurred attempting to determine the timeouts
+tpm tpm0: tpm_try_transmit: tpm_send: error
+urandom_read: .* callbacks suppressed
+asix_rx_fixup() Bad Header Length
+genirq: Threaded irq requested with handler=NULL and !ONESHOT for irq
+PM: Some devices failed to suspend, or early wake event detected

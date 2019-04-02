@@ -2,13 +2,18 @@ suite: blktests
 testcase: blktests
 category: functional
 
-blktests_commit: HEAD
+blktests_commit:
+- HEAD
+- BASE
 blktests_branch: blktests/master
+
+need_memory: 1G
 
 blktests:
   test:
   - loop-group1
   - nbd-group1
   - srp-group1
+  - zbd-group1
   # - nvmeof-mp-group1 # incompatible with CONFIG_NVME_MULTIPATH
   - other

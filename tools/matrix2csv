@@ -16,14 +16,14 @@ end
 
 def file_name_json2csv(json_file)
   if json_file =~ /(.*)\.json(?:\.gz|.bz2|.xz)?/
-    $1 + ".csv"
+    $1 + '.csv'
   else
     json_file
   end
 end
 
 def main
-  if ARGV.length == 0
+  if ARGV.length.zero?
     usage
     exit 1
   end

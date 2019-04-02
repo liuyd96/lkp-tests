@@ -2,7 +2,7 @@
 
 LKP_SRC ||= ENV['LKP_SRC'] || File.dirname(__dir__)
 
-require "#{LKP_SRC}/lib/yaml.rb"
+require "#{LKP_SRC}/lib/yaml"
 require "#{LKP_SRC}/lib/constant"
 
 # /c/linux% git grep '"[a-z][a-z_]\+%d"'|grep -o '"[a-z_]\+'|cut -c2-|sort -u
@@ -191,7 +191,7 @@ def grep_crash_head(dmesg_file)
       next
     end
 
-    $stderr.puts "oops pattern mismatch: #{line}"
+    warn "oops pattern mismatch: #{line}"
   end
 
   oops_map
@@ -245,10 +245,8 @@ def common_error_id(line)
   line
 end
 
-=begin
-# <4>[  256.557393] [ INFO: possible circular locking dependency detected ]
- INFO_possible_circular_locking_dependency_detected: 1
-=end
+# # <4>[  256.557393] [ INFO: possible circular locking dependency detected ]
+#  INFO_possible_circular_locking_dependency_detected: 1
 
 def oops_to_bisect_pattern(line)
   words = line.split
@@ -332,6 +330,29 @@ def analyze_error_id(line)
     # [   61.268659] Corrupted low memory at ffff880000007b08 (7b08 phys) = 27200c000000000
     bug_to_bisect = oops_to_bisect_pattern line
     line = line.sub(/\b[0-9a-f]+\b phys/, '# phys').sub(/= \b[0-9a-f]+\b/, '= #')
+  when /kobject \(([0-9a-f]+|\(_*ptrval_*\))\): tried to init an initialized object/
+    # [  512.848747] kobject (ca296866): tried to init an initialized object, something is seriously wrong.
+    # [   50.433242] kobject ((ptrval)): tried to init an initialized object, something is seriously wrong.
+    # [   36.605689] kobject ((____ptrval____)): tried to init an initialized object, something is seriously wrong.
+    bug_to_bisect = oops_to_bisect_pattern line
+    line = line.sub(/kobject \(([0-9a-f]+|\(_*ptrval_*\))\)/, 'kobject (#)')
+  when /BUG: Bad rss-counter state mm:([0-9a-f]+|\(_*ptrval_*\)) idx:/
+    # [   70.951419 ] BUG: Bad rss-counter state mm:(____ptrval____) idx:1 val:4
+    # [ 2841.215571 ] BUG: Bad rss-counter state mm:000000000fb13173 idx:1 val:-1
+    # [   11.380524 ] BUG: Bad rss-counter state mm:(ptrval) idx:1 val:1
+    bug_to_bisect = oops_to_bisect_pattern line
+    line = line.sub(/BUG: Bad rss-counter state mm:([0-9a-f]+|\(_*ptrval_*\)) idx:/, 'BUG: Bad rss-counter state mm:# idx:')
+  when /Bad pagetable: [0-9a-f]+ \[#/
+    # [   29.493015 ] Bad pagetable: 000f [#1] PTI
+    # [    9.167214 ] Bad pagetable: 001d [#1] PTI
+    # [    9.170529 ] Bad pagetable: 0009 [#2] PTI
+    bug_to_bisect = oops_to_bisect_pattern line
+    line = line.sub(/Bad pagetable: [0-9a-f]+ \[#/, 'Bad pagetable: # [#')
+  when /(INFO: Slab 0x\(____ptrval____\) objects=.*fp=0x).* (flags=.*)/
+    # [   16.160017 ] INFO: Slab 0x(____ptrval____) objects=23 used=23 fp=0x          (null) flags=0x10201
+    # [   12.344185 ] INFO: Slab 0x(____ptrval____) objects=22 used=11 fp=0x(____ptrval____) flags=0x10201
+    bug_to_bisect = oops_to_bisect_pattern line
+    line = $1 + '(#) ' + $2
   else
     bug_to_bisect = oops_to_bisect_pattern line
   end

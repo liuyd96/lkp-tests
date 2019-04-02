@@ -9,7 +9,7 @@ require 'set'
 require "#{LKP_SRC}/lib/log"
 require "#{LKP_SRC}/lib/run-env"
 
-def is_event_counter(name)
+def event_counter?(name)
   $event_counter_prefixes ||= File.read("#{LKP_SRC}/etc/event-counter-prefixes").split
   $event_counter_prefixes.each do |prefix|
     return true if name.index(prefix) == 0
@@ -17,10 +17,18 @@ def is_event_counter(name)
   false
 end
 
-def is_independent_counter(name)
+def independent_counter?(name)
   $independent_counter_prefixes ||= File.read("#{LKP_SRC}/etc/independent-counter-prefixes").split
   $independent_counter_prefixes.each do |prefix|
     return true if name.index(prefix) == 0
+  end
+  false
+end
+
+def ignore_part(name)
+  $ignore_part_prefixes ||= File.read("#{LKP_SRC}/etc/ignore-part-prefixes").split
+  $ignore_part_prefixes.each do |prefix|
+    return true if name.start_with?(prefix)
   end
   false
 end
@@ -45,7 +53,7 @@ def add_performance_per_watt(stats, matrix)
   watt = stats['pmeter.Average_Active_Power']
   return unless watt && watt > 0
 
-  kpi_stats = load_yaml("#{LKP_SRC}/etc/index-perf.yaml")
+  kpi_stats = load_yaml("#{LKP_SRC}/etc/index-perf-all.yaml")
   return unless kpi_stats
 
   performance = 0
@@ -85,6 +93,9 @@ def create_stats_matrix(result_root)
 
   create_programs_hash 'stats/**/*'
   monitor_files = Dir["#{result_root}/*.{json,json.gz}"]
+  job = Job.open("#{result_root}/job.yaml")
+  stats_part_begin = job['stats_part_begin'].to_f
+  stats_part_end = job['stats_part_end'].to_f
 
   monitor_files.each do |file|
     next unless File.size?(file)
@@ -105,16 +116,39 @@ def create_stats_matrix(result_root)
 
     monitor_stats = load_json file
     sample_size = max_cols(monitor_stats)
+
+    i_stats_part_begin = 0
+    stats_part_len = sample_size
+    tv = monitor_stats["#{monitor}.time"]
+    # ignore non-sequence and start/end results
+    if tv && tv.size > 2
+      tv0 = tv[0]
+      # make it relative time
+      if tv0 > 2 && (stats_part_begin != 0 || stats_part_end != 0)
+        tv = tv.map { |v| v - tv0 }
+      end
+      if stats_part_begin != 0
+        i_stats_part_begin = tv.find_index { |v| v >= stats_part_begin } || sample_size
+        stats_part_len -= i_stats_part_begin
+      end
+      if stats_part_end != 0
+        i_end = tv.find_index { |v| v >= stats_part_end } || sample_size
+        stats_part_len = i_end - i_stats_part_begin
+      end
+    end
+
     monitor_stats.each do |k, v|
       next if k == "#{monitor}.time"
+      v = v[i_stats_part_begin, stats_part_len] unless ignore_part k
+      next if !v || v.empty?
       stats[k] = if v.size == 1
                    v[0]
-                 elsif is_independent_counter k
+                 elsif independent_counter? k
                    v.sum
-                 elsif is_event_counter k
+                 elsif event_counter? k
                    v[-1] - v[0]
                  else
-                   v.sum / sample_size
+                   v.sum / stats_part_len
                  end
       stats[k + '.max'] = v.max if should_add_max_latency k
     end
@@ -311,7 +345,7 @@ def read_matrix_from_csv_file(file_name)
   end
 
   File.readlines(file_name).each do |line|
-    values = line.split()
+    values = line.split
     key = values.shift
     matrix[key] = values.map { |v| convert[v] }
   end
@@ -349,6 +383,10 @@ def unite_params(result_root)
 
   params = {}
   params = YAML.load_file(params_file) if File.exist? params_file
+  unless params.instance_of? Hash
+    log_warn "failed to parse file #{params_file}"
+    params = {}
+  end
 
   job = Job.new
   begin

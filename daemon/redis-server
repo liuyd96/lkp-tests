@@ -1,24 +1,30 @@
 #!/bin/sh
-# - nr_task
+# - nr_processes
 # - cpu_node_bind
+# - mem_node_bind
+# - redis_cpu_node_bind
+# - redis_mem_node_bind
+
 . $LKP_SRC/lib/reproduce-log.sh
+. "$LKP_SRC"/lib/numactl.sh
+
+: "${redis_cpu_node_bind:=$cpu_node_bind}"
+: "${redis_mem_node_bind:=$mem_node_bind}"
+
 bg_pids=""
 redis_server=$BENCHMARK_ROOT/redis/bin/redis-server
+
+parse_numa_node_binding "$redis_cpu_node_bind" "$redis_mem_node_bind"
+
 # start redis server
-for i in $(seq 1 "${nr_task}")
-do
-	port=$((6379+$i))
-	if [ -n "$cpu_node_bind" ]; then
-		if [ "$cpu_node_bind" = "even" ]; then
-			bind=$(($i%2))
-		else
-			bind=$cpu_node_bind
-		fi
-		numa_bind="numactl --cpunodebind=$bind --"
-	fi
+for i in $(seq 1 "${nr_processes}"); do
+	port=$((6379+i))
+	numa_bind=$(numa_node_binding "$i")
 	log_eval "$numa_bind $redis_server --port $port &"
 	bg_pids="$bg_pids $!"
 done
+
+echo "$bg_pids" > "$TMP"/pid-daemons
 
 cat > $TMP_RESULT_ROOT/post-run.redis <<EOF
 /bin/kill -9 $bg_pids

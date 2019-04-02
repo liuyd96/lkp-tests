@@ -1,7 +1,0 @@
-model: 4 Sockets Haswell-EP
-nr_node: 4
-nr_cpu: 128
-memory: 512G
-hdd_partitions:
-swap_partitions: LABEL=SWAP
-rootfs_partition: LABEL=LKP-ROOTFS

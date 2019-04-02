@@ -1,0 +1,77 @@
+#!/bin/sh
+# - preload
+# - nr_processes
+# - n_ratio
+# - data_size
+# - requests
+# - requests_multiple
+# - key_pattern
+# - preload_key_pattern
+# - key_min
+# - key_max
+# - nr_threads
+# - n_client
+# - n_pipeline
+# - cpu_node_bind
+# - mem_node_bind
+
+## memtier_benchmark is a command line utility developed by Redis Labs
+## (formerly Garantia Data Ltd.) for load generation and bechmarking
+## NoSQL key-value databases
+
+. "$LKP_SRC"/lib/reproduce-log.sh
+. "$LKP_SRC"/lib/numactl.sh
+memtier_dir="$TMP"/memtier/
+rm -rf "$memtier_dir"
+mkdir -p "$memtier_dir"
+export PATH=$BENCHMARK_ROOT/memtier_benchmark/:$PATH
+
+: "${nr_processes:=1}"
+: "${nr_threads:=1}"
+: "${key_min:=1}"
+: "${requests_multiple:=1}"
+: "${preload_key_pattern:="R:R"}"
+
+[ -n "$key_max" ] || {
+	echo "$(basename $0) key_max must be specified!\n";
+	exit 1
+}
+
+[ -z "$requests" ] && requests=$((key_max * requests_multiple))
+
+proc_key_max=$((key_max/nr_processes))
+proc_requests=$((requests/nr_processes))
+
+opt="--key-minimum=$key_min --key-maximum=$proc_key_max --threads=$nr_threads"
+
+[ -n "$data_size" ] && opt="$opt -d $data_size"
+[ -n "$n_client" ] && opt="$opt -c $n_client"
+[ -n "$n_pipeline" ] && opt="$opt --pipeline=$n_pipeline"
+
+parse_numa_node_binding "$cpu_node_bind" "$mem_node_bind"
+
+if [ -n "$preload" ]; then
+	begin=$(date +%s.%N)
+	preload_requests=$((key_max * 2))
+	preload_proc_requests=$((preload_requests/nr_processes))
+	for i in $(seq 1 "${nr_processes}")
+	do
+		port=$((6379+i))
+		numa_bind=$(numa_node_binding "$i")
+		log_test $numa_bind memtier_benchmark $opt --ratio="100:1" -n $preload_proc_requests --key-pattern=$preload_key_pattern -p $port > /dev/null &
+	done
+	wait
+	end=$(date +%s.%N)
+	duration=$(echo "$end-$begin" |bc)
+	echo "preload duration: $duration"
+fi
+
+for i in $(seq 1 "${nr_processes}")
+do
+	port=$((6379+i))
+	numa_bind=$(numa_node_binding "$i")
+	log_test $numa_bind memtier_benchmark $opt --ratio=$n_ratio -n $proc_requests --key-pattern=$key_pattern -p $port > $memtier_dir/memtier.$i &
+done
+wait
+
+cat "$memtier_dir"/memtier.*

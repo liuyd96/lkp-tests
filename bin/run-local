@@ -15,13 +15,13 @@ ENV['TMP'] = TMP
 
 require "#{LKP_SRC}/lib/run-env"
 set_local_run
-require "#{LKP_SRC}/lib/yaml.rb"
-require "#{LKP_SRC}/lib/stats.rb"
-require "#{LKP_SRC}/lib/matrix.rb"
-require "#{LKP_SRC}/lib/job2sh.rb"
-require "#{LKP_SRC}/lib/job.rb"
-require "#{LKP_SRC}/lib/result_root.rb"
-require "#{LKP_SRC}/lib/common.rb"
+require "#{LKP_SRC}/lib/yaml"
+require "#{LKP_SRC}/lib/stats"
+require "#{LKP_SRC}/lib/matrix"
+require "#{LKP_SRC}/lib/job2sh"
+require "#{LKP_SRC}/lib/job"
+require "#{LKP_SRC}/lib/result_root"
+require "#{LKP_SRC}/lib/common"
 
 ENV['PATH'] = ENV['PATH'] + ":#{LKP_SRC}/bin"
 ENV['BENCHMARK_ROOT'] = '/lkp/benchmarks'
@@ -85,7 +85,7 @@ def create_result_root(_result_root)
     FileUtils.mkdir_p result_root, mode: 0o2775
     return result_root
   end
-  $stderr.puts "cannot create more result_roots under #{_result_root}"
+  warn "cannot create more result_roots under #{_result_root}"
   nil
 end
 
@@ -93,7 +93,7 @@ job = Job.new
 begin
   job.load(jobfile)
 rescue StandardError
-  $stderr.puts "#{jobfile} is not a valid jobfile"
+  warn "#{jobfile} is not a valid jobfile"
   exit 1
 end
 
@@ -105,7 +105,7 @@ job['testbox'] = HOSTNAME
 job['tbox_group'] = tbox_group(HOSTNAME)
 job['kconfig'] ||= 'defconfig'
 job['commit'] ||= `uname -r`.chomp!
-job['rootfs'] ||= if File.exist? "/etc/os-release"
+job['rootfs'] ||= if File.exist? '/etc/os-release'
                     `grep -m1 ^ID= /etc/os-release`.split('=')[1].chomp
                   else
                     distro

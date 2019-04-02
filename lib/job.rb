@@ -3,10 +3,10 @@
 LKP_SRC ||= ENV['LKP_SRC'] || File.dirname(__dir__)
 LKP_SERVER ||= 'inn'.freeze
 
-require "#{LKP_SRC}/lib/common.rb"
-require "#{LKP_SRC}/lib/result.rb"
-require "#{LKP_SRC}/lib/hash.rb"
-require "#{LKP_SRC}/lib/erb.rb"
+require "#{LKP_SRC}/lib/common"
+require "#{LKP_SRC}/lib/result"
+require "#{LKP_SRC}/lib/hash"
+require "#{LKP_SRC}/lib/erb"
 require "#{LKP_SRC}/lib/log"
 require 'fileutils'
 require 'yaml'
@@ -175,7 +175,7 @@ class Job
 end
 
 class Job
-  EXPAND_DIMS = %w(kconfig commit rootfs).freeze
+  EXPAND_DIMS = %w(kconfig commit rootfs ltp_commit nvml_commit blktests_commit qemu_commit perf_test_commit linux_commit).freeze
 
   attr_reader :path_scheme
   attr_reader :referenced_programs
@@ -253,7 +253,7 @@ class Job
   end
 
   def load_hosts_config
-    return if @job.include? :no_defaults && @job['old_tbox_group'].nil?
+    return if @job.include?(:no_defaults) && @job['old_tbox_group'].nil?
     return unless @job.include? 'tbox_group'
     hosts_file = "#{lkp_src}/hosts/#{@job['tbox_group']}"
     return unless File.exist? hosts_file
@@ -812,8 +812,8 @@ class << Job
   end
 end
 
-def each_job_in_dir(dir)
-  return enum_for(__method__, dir) unless block_given?
+def each_job_in_dir(dir, job_name = '*.yaml')
+  return enum_for(__method__, dir, job_name) unless block_given?
 
   proc_jobfile = lambda do |jobfile|
     j = Job.open jobfile
@@ -821,5 +821,5 @@ def each_job_in_dir(dir)
     yield j
   end
 
-  Dir.glob(File.join(dir, '**/*.yaml')).each(&proc_jobfile)
+  Dir.glob(File.join(dir, '**', job_name)).each(&proc_jobfile)
 end

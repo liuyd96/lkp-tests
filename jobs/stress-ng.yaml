@@ -7,7 +7,7 @@ nr_threads: 100%
 disk: 1HDD
 
 testtime:
-- 60s
+- 30s
 - 1s
 
 stress-ng:
@@ -48,8 +48,6 @@ stress-ng:
   - vm
 
 ---
-nr_threads: 50%
-
 testtime:
 - 5s
 
@@ -58,13 +56,11 @@ stress-ng:
   - memory
 
 ---
-nr_threads: 25%
-
 sysctl:
 - sc_pid_max: 4194304
 
 testtime:
-- 30s
+- 5s
 
 stress-ng:
   class:
